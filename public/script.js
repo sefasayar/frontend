@@ -8,7 +8,7 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 // script.js
 
 // Backend URL'si
-const BACKEND_URL = 'https://backend-delta-beige.vercel.app/';
+const BACKEND_URL = 'https://backend-delta-beige.vercel.app';
 
 // Stripe publishable key
 const stripe = Stripe('pk_live_51NZXjUGxZtShkwxA6MsCRnBECcoRqRuiUunqNtKn6QT34tIWdxxhTSPx2sMJ16ekSXk2nNdSAfSJEgFYWb1QFOCk002C4jr2y7'); // Stripe Publishable Key'inizi buraya ekleyin
