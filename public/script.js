@@ -5,20 +5,25 @@ const supabaseUrl = 'https://neijkzbyyqtwpmsvymip.supabase.co'; // Supabase URL'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5laWpremJ5eXF0d3Btc3Z5bWlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA0NjY2NjAsImV4cCI6MjA0NjA0MjY2MH0.JiDT3kT_Ror6-AWFKTo9JJBQUC_ZQTPXOYJNpBlaaxQ'; // Supabase Anon Key'inizi buraya ekleyin
 const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-console.log('Supabase Client Oluşturuldu:', supabaseClient);
+// script.js
+
+// Backend URL'si
+const BACKEND_URL = 'https://finansal-analiz-backend.vercel.app';
+
+// Stripe publishable key
+const stripe = Stripe('pk_live_51NZXjUGxZtShkwxA6MsCRnBECcoRqRuiUunqNtKn6QT34tIWdxxhTSPx2sMJ16ekSXk2nNdSAfSJEgFYWb1QFOCk002C4jr2y7'); // Stripe Publishable Key'inizi buraya ekleyin
+
+// Supabase Client'ı Başlatma
+const supabase = supabase.createClient('https://neijkzbyyqtwpmsvymip.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5laWpremJ5eXF0d3Btc3Z5bWlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA0NjY2NjAsImV4cCI6MjA0NjA0MjY2MH0.JiDT3kT_Ror6-AWFKTo9JJBQUC_ZQTPXOYJNpBlaaxQ');
 
 // Kullanıcı Kayıt Olma Fonksiyonu
 async function signUp(email, password) {
     console.log('Kayıt Fonksiyonu Çalıştırılıyor...');
-    const { data, error } = await supabaseClient.auth.signUp({
-        email: email,
-        password: password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
         console.error('Kayıt Hatası:', error.message);
         alert('Kayıt Hatası: ' + error.message);
     } else {
-        console.log('Kullanıcı Kaydedildi:', data.user);
         alert('Kayıt Başarılı! Lütfen e-posta adresinizi doğrulayın.');
     }
 }
@@ -26,67 +31,48 @@ async function signUp(email, password) {
 // Kullanıcı Giriş Yapma Fonksiyonu
 async function signIn(email, password) {
     console.log('Giriş Fonksiyonu Çalıştırılıyor...');
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
         console.error('Giriş Hatası:', error.message);
         alert('Giriş Hatası: ' + error.message);
     } else {
-        console.log('Kullanıcı Giriş Yaptı:', data.user);
         alert('Giriş Başarılı!');
+        // Kullanıcı kimliğini localStorage'a kaydetme
+        localStorage.setItem('userId', data.user.id);
     }
 }
 
 // Abonelik Satın Alma Fonksiyonu
-async function subscribeUser(planId) {
+async function subscribeUser(planId, userId) {
     console.log('Abonelik Satın Alma Fonksiyonu Çalıştırılıyor...');
-    const { data, error } = await supabaseClient.auth.getUser();
-
-    if (error) {
-        console.error('Kullanıcı Bilgisi Alınamadı:', error.message);
-        alert('Kullanıcı bilgisi alınamadı: ' + error.message);
-        return;
-    }
-
-    const user = data.user;
-
-    if (!user) {
-        console.error('Kullanıcı giriş yapmamış.');
-        alert('Lütfen önce giriş yapın.');
-        return;
-    }
-
     try {
-        const response = await fetch('/api/subscribe', {
+        const response = await fetch(`${BACKEND_URL}/api/createCheckoutSession`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ userId: user.id, planId: planId }),
+            body: JSON.stringify({ planId, userId }),
         });
 
-        const responseData = await response.json();
+        const data = await response.json();
 
         if (response.ok) {
-            console.log('Abonelik Başarıyla Alındı:', responseData);
-            alert('Abonelik Başarıyla Alındı!');
+            // Stripe Checkout sayfasına yönlendirme
+            window.location.href = data.sessionUrl;
         } else {
-            console.error('Abonelik Satın Alma Hatası:', responseData.message);
-            alert('Abonelik Satın Alma Hatası: ' + responseData.message);
+            console.error('Checkout Session Oluşturma Hatası:', data.message);
+            alert('Checkout Session Oluşturma Hatası: ' + data.message);
         }
     } catch (error) {
-        console.error('Ağ Hatası:', error.message);
-        alert('Ağ Hatası: ' + error.message);
+        console.error('Checkout Session Oluşturma Hatası:', error.message);
+        alert('Checkout Session Oluşturma Hatası: ' + error.message);
     }
 }
 
 // Önerileri Görselleştirme Fonksiyonu
 async function displayRecommendations(packageName) {
     try {
-        // Serverless fonksiyonunu çağırarak analiz verilerini çekme
-        const response = await fetch(`/api/analyzeMarket?market=${encodeURIComponent(packageName)}`, {
+        const response = await fetch(`${BACKEND_URL}/api/analyzeMarket?market=${encodeURIComponent(packageName)}`, {
             method: 'GET',
         });
 
@@ -96,7 +82,6 @@ async function displayRecommendations(packageName) {
             return;
         }
 
-        // Recommendations Container'ını temizle
         const recommendationsDiv = document.getElementById('recommendations');
         recommendationsDiv.innerHTML = '';
 
@@ -125,244 +110,127 @@ async function displayRecommendations(packageName) {
             });
         }
 
-        // Grafik oluşturma (isteğe bağlı)
-        // ...
-
-    } catch (error) {
-        console.error('Önerileri görüntüleme hatası:', error);
-        alert('Önerileri görüntüleme hatası: ' + error.message);
-    }
-}
-// DOMContentLoaded etkinliğinde güncellemeler
-document.addEventListener('DOMContentLoaded', () => {
-
-
-        // Recommendations Container'ını temizle
-        const recommendationsDiv = document.getElementById('recommendations');
-        recommendationsDiv.innerHTML = '';
-
-        if (result.analysis.length === 0) {
-            recommendationsDiv.innerHTML = '<p>Seçilen market için analiz bulunamadı.</p>';
-        } else {
-            result.analysis.forEach(pair => {
-                if (pair.recommendation === 'Strong Buy' || pair.recommendation === 'Strong Sell') {
-                    const recommendationCard = document.createElement('div');
-                    recommendationCard.classList.add('recommendation-card');
-
-                    if (pair.recommendation === 'Strong Buy') {
-                        recommendationCard.classList.add('strong-buy');
-                    } else if (pair.recommendation === 'Strong Sell') {
-                        recommendationCard.classList.add('strong-sell');
-                    }
-
-                    recommendationCard.innerHTML = `
-                        <h3>${pair.recommendation} Önerisi</h3>
-                        <p>Parite: ${pair.symbol}</p>
-                        <p>RSI: ${pair.rsi.toFixed(2)}</p>
-                        <p>Duygu Skoru: ${pair.sentiment_score.toFixed(2)}</p>
-                    `;
-
-                    recommendationsDiv.appendChild(recommendationCard);
-                }
-   // Paket Dropdown Event Listener
-    const marketDropdown = document.getElementById('market-dropdown');
-    marketDropdown.addEventListener('change', () => {
-        const selectedPackage = marketDropdown.value;
-        if (selectedPackage) {
-            displayRecommendations(selectedPackage);
-        } else {
-            // Clear recommendations and chart
-            const recommendationsDiv = document.getElementById('recommendations');
-            recommendationsDiv.innerHTML = '';
-            // Grafik temizleme işlemi...
-        }
-    });
-});
-            });
-
-            // Eğer hiç sinyal yoksa
-            if (!result.analysis.some(pair => pair.recommendation === 'Strong Buy' || pair.recommendation === 'Strong Sell')) {
-                recommendationsDiv.innerHTML = '<p>Şu anda güçlü al veya güçlü sat önerisi yok.</p>';
-            }
-        }
-
-        // Grafik için verileri toplama
-        const chartData = {};
-        result.analysis.forEach(pair => {
-            if (!chartData[pair.symbol]) {
-                chartData[pair.symbol] = { dates: [], rsi: [], sentiment: [] };
-            }
-            chartData[pair.symbol].dates.push(pair.date);
-            chartData[pair.symbol].rsi.push(pair.rsi);
-            chartData[pair.symbol].sentiment.push(pair.sentiment_score);
-        });
-
-        // Chart.js ile grafik oluşturma
-        const ctx = document.getElementById('stockChart').getContext('2d');
-        // Eğer önceki grafik varsa sil
-        if (window.stockChartInstance) {
-            window.stockChartInstance.destroy();
-        }
-
-        const datasets = [];
-        Object.keys(chartData).forEach(symbol => {
-            datasets.push({
-                label: `${symbol} RSI`,
-                data: chartData[symbol].rsi,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1,
-                fill: true,
-            });
-            datasets.push({
-                label: `${symbol} Duygu Skoru`,
-                data: chartData[symbol].sentiment,
-                backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                borderColor: 'rgba(153, 102, 255, 1)',
-                borderWidth: 1,
-                fill: true,
-            });
-        });
-
-        window.stockChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: result.analysis.length > 0 ? result.analysis.map(pair => pair.date) : [],
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Tarih'
-                        }
-                    },
-                    y: {
-                        beginAtZero: false,
-                        title: {
-                            display: true,
-                            text: 'Değerler'
-                        }
-                    }
-                }
-            }
-        });
-
     } catch (error) {
         console.error('Önerileri görüntüleme hatası:', error);
         alert('Önerileri görüntüleme hatası: ' + error.message);
     }
 }
 
+// DOMContentLoaded etkinliğinde Event Listener'lar
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Finansal Analiz Platformu yüklendi.');
 
-    // Kayıt ve Giriş Butonlarına Event Listener Ekleme
-    const signUpButton = document.getElementById('sign-up');
-    const signInButton = document.getElementById('sign-in');
-    const authForms = document.getElementById('auth-forms');
-    const signupFormContainer = document.getElementById('signup-form');
-    const signinFormContainer = document.getElementById('signin-form');
-    const signupForm = document.getElementById('signupForm');
-    const signinForm = document.getElementById('signinForm');
+    // "Satın Al" Butonlarına Event Listener Ekleme
+    const buyButtons = document.querySelectorAll('.buy-btn');
+    buyButtons.forEach(button => {
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const selectedPackage = button.getAttribute('data-package');
+            console.log('Seçilen Paket:', selectedPackage);
 
-    if (signUpButton) {
-        signUpButton.addEventListener('click', () => {
-            console.log('Kayıt Ol Butonuna Tıklandı.');
-            authForms.style.display = 'flex'; // Flex for centering
-            signupFormContainer.style.display = 'block';
-            signinFormContainer.style.display = 'none';
-        });
-    }
+            // Kullanıcı kimliğini dinamik olarak almanız gerekecek
+            const userId = getUserId(); // Örneğin, kullanıcı oturumu sonrası alınabilir
 
-    if (signInButton) {
-        signInButton.addEventListener('click', () => {
-            console.log('Giriş Yap Butonuna Tıklandı.');
-            authForms.style.display = 'flex'; // Flex for centering
-            signinFormContainer.style.display = 'block';
-            signupFormContainer.style.display = 'none';
-        });
-    }
-
-    if (signupForm) {
-        signupForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Sayfa yenilenmesini engelle
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            signUp(email, password);
-        });
-    }
-
-    if (signinForm) {
-        signinForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Sayfa yenilenmesini engelle
-            const email = document.getElementById('signin-email').value;
-            const password = document.getElementById('signin-password').value;
-            signIn(email, password);
-        });
-    }
-
-    // Abonelik butonlarına event listener ekleme
-    document.querySelectorAll('.package .btn').forEach(button => {
-        button.addEventListener('click', () => {
-            const planName = button.parentElement.querySelector('h3').innerText;
-            let planId;
-
-            switch (planName) {
-                case 'Basic':
-                    planId = 1;
-                    break;
-                case 'Silver':
-                    planId = 2;
-                    break;
-                case 'Platinum':
-                    planId = 3;
-                    break;
-                default:
-                    console.error('Bilinmeyen Abonelik Paketi');
+            if (!userId) {
+                alert('Lütfen önce giriş yapın.');
+                return;
             }
 
-            subscribeUser(planId);
+            // PlanId'yi paket adına göre belirleyin
+            const planId = getPlanId(selectedPackage);
+
+            if (!planId) {
+                alert('Geçersiz paket seçildi.');
+                return;
+            }
+
+            // Stripe Checkout oturumu oluştur
+            subscribeUser(planId, userId);
         });
     });
 
-    // Çarpı Butonlarına Event Listener Ekleme
-    const closeSignupButton = document.getElementById('close-signup');
-    const closeSigninButton = document.getElementById('close-signin');
+    // Giriş ve Kayıt Formları Arasında Geçiş
+    const showRegisterLink = document.getElementById('show-register');
+    const showLoginLink = document.getElementById('show-login');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
 
-    if (closeSignupButton) {
-        closeSignupButton.addEventListener('click', () => {
-            authForms.style.display = 'none';
-            signupFormContainer.style.display = 'none';
-        });
-    }
+    showRegisterLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+    });
 
-    if (closeSigninButton) {
-        closeSigninButton.addEventListener('click', () => {
-            authForms.style.display = 'none';
-            signinFormContainer.style.display = 'none';
-        });
-    }
+    showLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+    });
+
+    // Giriş ve Kayıt Butonlarına Event Listener Ekleme
+    document.getElementById('login-btn').addEventListener('click', () => {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        signIn(email, password);
+    });
+
+    document.getElementById('register-btn').addEventListener('click', () => {
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+        signUp(email, password);
+    });
+
+    // Modal Kapatma İşlemi
+    const modal = document.getElementById('auth-modal');
+    const closeBtn = document.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    // Modal Dışına Tıklanınca Kapatma
+    window.addEventListener('click', (e) => {
+        if (e.target == modal) {
+            modal.style.display = 'none';
+        }
+    });
 
     // Market Dropdown Event Listener
     const marketDropdown = document.getElementById('market-dropdown');
-    marketDropdown.addEventListener('change', () => {
-        const selectedMarket = marketDropdown.value;
-        if (selectedMarket) {
-            displayRecommendations(selectedMarket);
-        } else {
-            // Clear recommendations and chart
-            const recommendationsDiv = document.getElementById('recommendations');
-            recommendationsDiv.innerHTML = '';
-            if (window.stockChartInstance) {
-                window.stockChartInstance.destroy();
+    if (marketDropdown) {
+        marketDropdown.addEventListener('change', () => {
+            const selectedPackage = marketDropdown.value;
+            if (selectedPackage) {
+                displayRecommendations(selectedPackage);
+            } else {
+                // Önerileri ve grafikleri temizleme
+                const recommendationsDiv = document.getElementById('recommendations');
+                recommendationsDiv.innerHTML = '';
+                if (window.stockChartInstance) {
+                    window.stockChartInstance.destroy();
+                }
             }
-        }
-    });
+        });
+    }
 });
+
+// Plan adını planId'ye dönüştürme fonksiyonu
+function getPlanId(planName) {
+    switch (planName) {
+        case 'Forex + Hisse Senedi Paketi':
+            return 1;
+        case 'Profesyonel Vadeli İşlemler Paketi':
+            return 2;
+        case 'Kripto Özel Paketi':
+            return 3;
+        case 'Deneme Paketi':
+            return 4; // Deneme paketi için bir planId ekleyebilirsiniz
+        default:
+            return null;
+    }
+}
+
+// Kullanıcı Kimliğini Alma Fonksiyonu
+function getUserId() {
+    const user = supabase.auth.user();
+    return user ? user.id : null;
+}
